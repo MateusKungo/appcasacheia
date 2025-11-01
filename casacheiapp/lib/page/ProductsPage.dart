@@ -66,29 +66,34 @@ class _ProductsPageState extends State<ProductsPage> {
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
         // A API retorna um objeto, e a lista de produtos está dentro de uma chave (ex: 'products')
-        final List<dynamic> data = responseBody['allProducts'] ?? [];
+        final List<dynamic> data = responseBody['formatted'] ?? [];
 
         setState(() {
           _products = data.map<Product>((json) {
-            // Mapeia a categoria para um emoji, com um padrão
-            final category = json['category'] ?? 'Outros';
-            final image = {
-              'Grãos': '🍚',
-              'Bebidas': '🥤',
-              'Enlatados': '🥫',
-              'Higiene': '🧼',
-              'Laticínios': '🥛',
-              'Cestas': '🛒',
-            }[category] ?? '📦';
+            // Mapeia o ID da categoria para um nome legível.
+            final categoryId = json['category']?.toString() ?? '';
+            final categoryName = {
+              '6904dc7f2195ccf3cdb1a10a': 'Laticínios',
+              '6904dcd22195ccf3cdb1a10d': 'Grãos',
+              // Adicione outros mapeamentos de ID para nome aqui
+            }[categoryId] ?? 'Outros';
+
+            // Extrai a URL da imagem
+            String imageUrl = 'https://via.placeholder.com/150'; // Imagem padrão
+            if (json['image'] is List && (json['image'] as List).isNotEmpty) {
+              imageUrl = (json['image'] as List).first.toString();
+            } else if (json['image'] is String && json['image'].isNotEmpty) {
+              imageUrl = json['image'];
+            }
 
             return Product(
               id: json['_id'] ?? '',
               name: json['name'] ?? 'Produto sem nome',
               price: _parseDynamicNumber(json['price']),
-              category: category,
+              category: categoryName,
               stock: _parseDynamicNumber(json['stock']).toInt(),
               description: json['description'] ?? '',
-              image: image,
+              image: imageUrl,
             );
           }).toList();
           _isLoading = false;
@@ -340,10 +345,33 @@ class _ProductsPageState extends State<ProductsPage> {
                       topRight: Radius.circular(12),
                     ),
                   ),
-                  child: Center(
-                    child: Text(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    child: Image.network(
                       product.image,
-                      style: const TextStyle(fontSize: 32), // Tamanho reduzido
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                          size: 40,
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -512,12 +540,29 @@ class _ProductsPageState extends State<ProductsPage> {
                           color: Colors.grey[50],
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Center(
-                          child: Text(
-                            product.image,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
+                        child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              product.image,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey,
+                                );
+                              },
+                              loadingBuilder:
+                                  (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                );
+                              },
+                            )),
                       ),
                       title: Text(
                         product.name,

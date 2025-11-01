@@ -1,10 +1,11 @@
 import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
 
+// ignore: must_be_immutable
 class CartPage extends StatefulWidget {
-  final List<Product> cartItems;
-
-  const CartPage({super.key, required this.cartItems});
+  List<Product> cartItems;
+ 
+  CartPage({super.key, required this.cartItems});
 
   @override
   State<CartPage> createState() => _CartPageState();
@@ -67,6 +68,7 @@ class _CartPageState extends State<CartPage> {
   void _removeItem(int index) {
     setState(() {
       _itemQuantities.remove(index);
+      widget.cartItems.removeAt(index);
     });
   }
 
@@ -278,12 +280,34 @@ class _CartPageState extends State<CartPage> {
             color: Colors.grey[50],
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Center(
-            child: Text(
-              item.image,
-              style: const TextStyle(fontSize: 20),
-            ),
-          ),
+          child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                item.image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+
+
+            ,
         ),
         title: Text(
           item.name,

@@ -71,20 +71,35 @@ class _HomePageState extends State<HomePage> {
 
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
+        print('Resposta da API: $responseBody'); // DEBUG
+        
         // A API retorna um objeto, e a lista de produtos está dentro de uma chave (ex: 'products')
-        final List<dynamic> data = responseBody['allProducts'] ?? [];
+        final List<dynamic> data = responseBody['formatted'] ?? [];
+        print('Número de produtos: ${data.length}'); // DEBUG
 
         setState(() {
           _featuredProducts = data.map<Product>((json) {
-            final category = json['category'] ?? 'Outros';
-            final image = {
-              'Grãos': '🍚',
-              'Bebidas': '🥤',
-              'Enlatados': '🥫',
-              'Higiene': '🧼',
-              'Laticínios': '🥛',
-              'Cestas': '🛒',
-            }[category] ?? '📦';
+            print('Processando produto: ${json['name']}'); // DEBUG
+            print('Imagens do produto: ${json['image']}'); // DEBUG
+            
+            final category = json['category']?.toString() ?? 'Outros';
+            
+            // CORREÇÃO: Verificar corretamente a estrutura das imagens
+            String imageUrl = 'https://via.placeholder.com/150'; // Imagem padrão
+            
+            if (json['image'] is List && (json['image'] as List).isNotEmpty) {
+              // Pega a primeira imagem da lista
+              imageUrl = (json['image'] as List).first.toString();
+              print('URL da imagem selecionada: $imageUrl'); // DEBUG
+            } else if (json['image'] is String) {
+              // Caso a API retorne uma string única
+              imageUrl = json['image'];
+            }
+            
+            // Se a URL estiver vazia ou inválida, usar placeholder
+            if (imageUrl.isEmpty || !imageUrl.startsWith('http')) {
+              imageUrl = 'https://via.placeholder.com/150';
+            }
 
             return Product(
               id: json['_id'] ?? '',
@@ -93,18 +108,22 @@ class _HomePageState extends State<HomePage> {
               category: category,
               stock: _parseDynamicNumber(json['stock']).toInt(),
               description: json['description'] ?? '',
-              image: image,
+              image: imageUrl,
             );
           }).take(6).toList(); // Pega apenas os 6 primeiros como destaque
           _isLoading = false;
         });
+        
+        print('Produtos processados: ${_featuredProducts.length}'); // DEBUG
       } else {
+        print('Erro na API: ${response.statusCode}'); // DEBUG
         setState(() {
-          _error = 'Falha ao carregar produtos';
+          _error = 'Falha ao carregar produtos. Status: ${response.statusCode}';
           _isLoading = false;
         });
       }
     } catch (e) {
+      print('Erro na requisição: $e'); // DEBUG
       setState(() {
         _error = 'Erro de conexão. Verifique sua internet.';
         _isLoading = false;
@@ -493,6 +512,15 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    if (_featuredProducts.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('Nenhum produto disponível'),
+        ),
+      );
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -572,7 +600,7 @@ class CategoryItem extends StatelessWidget {
   }
 }
 
-// Widget para Produtos
+// Widget para Produtos - CORRIGIDO
 class ProductCard extends StatelessWidget {
   final Product product;
   final ColorScheme colorScheme;
@@ -602,9 +630,10 @@ class ProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagem do produto
+          // Imagem do produto - CORRIGIDO
           Container(
             height: 120,
+            width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: const BorderRadius.only(
@@ -612,10 +641,35 @@ class ProductCard extends StatelessWidget {
                 topRight: Radius.circular(16),
               ),
             ),
-            child: Center(
-              child: Text(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+              child: Image.network(
                 product.image,
-                style: const TextStyle(fontSize: 48),
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded / 
+                            loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[200],
+                    child: const Icon(
+                      Icons.image_not_supported,
+                      color: Colors.grey,
+                      size: 40,
+                    ),
+                  );
+                },
               ),
             ),
           ),
