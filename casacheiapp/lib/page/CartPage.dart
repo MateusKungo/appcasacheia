@@ -1,10 +1,10 @@
-import 'package:casacheiapp/page/product.dart';
+import 'package:casacheiapp/page/CartItem.dart';
 import 'package:flutter/material.dart';
 
 // ignore: must_be_immutable
 class CartPage extends StatefulWidget { 
   // Lista estática para ser acessível de qualquer lugar da aplicação.
-  static final List<Product> staticCartItems = [];
+  static final List<CartItem> staticCartItems = [];
   CartPage({super.key});
 
   @override
@@ -12,7 +12,6 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
-  final Map<int, int> _itemQuantities = {};
   String? _selectedPaymentMethod;
 
   // Lista de métodos de pagamento - apenas Dinheiro e Cartão
@@ -34,40 +33,32 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
-    // Inicializa as quantidades para novos itens
-    for (int i = 0; i < CartPage.staticCartItems.length; i++) {
-      _itemQuantities[i] = 1;
-    }
   }
 
   double get _totalPrice {
     double total = 0;
-    for (int i = 0; i < CartPage.staticCartItems.length; i++) {
-      final product = CartPage.staticCartItems[i];
-      final quantity = _itemQuantities[i] ?? 1;
-      total += product.price * quantity;
+    for (final cartItem in CartPage.staticCartItems) {
+      total += cartItem.product.price * cartItem.quantity;
     }
     return total;
   }
 
   void _incrementQuantity(int index) {
     setState(() {
-      _itemQuantities[index] = (_itemQuantities[index] ?? 1) + 1;
+      CartPage.staticCartItems[index].quantity++;
     });
   }
 
   void _decrementQuantity(int index) {
     setState(() {
-      final currentQuantity = _itemQuantities[index] ?? 1;
-      if (currentQuantity > 1) {
-        _itemQuantities[index] = currentQuantity - 1;
+      if (CartPage.staticCartItems[index].quantity > 1) {
+        CartPage.staticCartItems[index].quantity--;
       }
     });
   }
 
   void _removeItem(int index) {
     setState(() {
-      _itemQuantities.remove(index);
       CartPage.staticCartItems.removeAt(index);
     });
   }
@@ -186,15 +177,11 @@ class _CartPageState extends State<CartPage> {
                     padding: const EdgeInsets.all(16),
                     itemCount: CartPage.staticCartItems.length,
                     itemBuilder: (context, index) {
-                      final item = CartPage.staticCartItems[index];
-                      final quantity = _itemQuantities[index] ?? 1;
-                      final totalItemPrice = item.price * quantity;
+                      final cartItem = CartPage.staticCartItems[index];
 
                       return _buildCartItem(
-                        item,
+                        cartItem,
                         index,
-                        quantity,
-                        totalItemPrice,
                         colorScheme,
                       );
                     },
@@ -253,10 +240,8 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildCartItem(
-    Product item,
+    CartItem cartItem,
     int index,
-    int quantity,
-    double totalItemPrice,
     ColorScheme colorScheme,
   ) {
     return Container(
@@ -283,7 +268,7 @@ class _CartPageState extends State<CartPage> {
           child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: Image.network(
-                item.image,
+                cartItem.product.image,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return const Icon(
@@ -310,7 +295,7 @@ class _CartPageState extends State<CartPage> {
             ,
         ),
         title: Text(
-          item.name,
+          cartItem.product.name,
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -321,7 +306,7 @@ class _CartPageState extends State<CartPage> {
           children: [
             const SizedBox(height: 4),
             Text(
-              'Kz ${item.price.toStringAsFixed(2)}',
+              'Kz ${cartItem.product.price.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.primary,
@@ -346,9 +331,9 @@ class _CartPageState extends State<CartPage> {
                     iconSize: 14,
                     icon: Icon(
                       Icons.remove,
-                      color: quantity > 1 ? Colors.red : Colors.grey[400],
+                      color: cartItem.quantity > 1 ? Colors.red : Colors.grey[400],
                     ),
-                    onPressed: quantity > 1
+                    onPressed: cartItem.quantity > 1
                         ? () => _decrementQuantity(index)
                         : null,
                   ),
@@ -356,7 +341,7 @@ class _CartPageState extends State<CartPage> {
                 const SizedBox(width: 12),
                 // Quantidade
                 Text(
-                  quantity.toString(),
+                  cartItem.quantity.toString(),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -385,7 +370,7 @@ class _CartPageState extends State<CartPage> {
                 const Spacer(),
                 // Preço total do item
                 Text(
-                  'Kz ${totalItemPrice.toStringAsFixed(2)}',
+                  'Kz ${(cartItem.product.price * cartItem.quantity).toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,

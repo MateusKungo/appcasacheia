@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async'; // Import para usar TimeoutException
+import 'package:casacheiapp/page/CartItem.dart';
 import 'package:casacheiapp/page/CartPage.dart';
 import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
@@ -131,7 +132,18 @@ class _ProductsPageState extends State<ProductsPage> {
 
   void _addToCart(Product product) {
     setState(() {
-      CartPage.staticCartItems.add(product);
+      // Verifica se o produto já está no carrinho
+      final existingCartItemIndex = CartPage.staticCartItems.indexWhere(
+        (item) => item.product.id == product.id,
+      );
+
+      if (existingCartItemIndex != -1) {
+        // Se já existe, apenas incrementa a quantidade
+        CartPage.staticCartItems[existingCartItemIndex].quantity++;
+      } else {
+        // Se não existe, adiciona como um novo item
+        CartPage.staticCartItems.add(CartItem(product: product, quantity: 1));
+      }
     });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar( 
