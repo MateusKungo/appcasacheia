@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async'; // Import para usar TimeoutException
+import 'package:casacheiapp/page/CartPage.dart';
 import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -12,7 +13,6 @@ class ProductsPage extends StatefulWidget {
 }
 
 class _ProductsPageState extends State<ProductsPage> {
-  final List<Product> _cartItems = [];
   List<Product> _products = [];
   String _selectedCategory = 'Todos';
   bool _isLoading = true;
@@ -131,9 +131,10 @@ class _ProductsPageState extends State<ProductsPage> {
 
   void _addToCart(Product product) {
     setState(() {
-      _cartItems.add(product);
+      CartPage.staticCartItems.add(product);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar( 
       SnackBar(
         content: Text('${product.name} adicionado ao carrinho'),
         duration: const Duration(seconds: 1),
@@ -141,39 +142,11 @@ class _ProductsPageState extends State<ProductsPage> {
     );
   }
 
-  void _removeFromCart(int index) {
-    setState(() {
-      _cartItems.removeAt(index);
-    });
-  }
-
   List<Product> get _filteredProducts {
     if (_selectedCategory == 'Todos') {
       return _products;
     }
     return _products.where((product) => product.category == _selectedCategory).toList();
-  }
-
-  double get _totalPrice {
-    return _cartItems.fold(0, (total, product) => total + product.price);
-  }
-
-  String _formatPrice(double price) {
-    return '${price.toStringAsFixed(2)} Kz';
-  }
-
-  void _showCartDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
-      ),
-      builder: (context) => _buildCartModal(),
-    );
   }
 
   @override
@@ -190,10 +163,12 @@ class _ProductsPageState extends State<ProductsPage> {
           Stack(
             children: [
               IconButton(
-                icon: Icon(Icons.shopping_cart, color: colorScheme.primary),
-                onPressed: _showCartDialog,
+                icon: Icon(Icons.shopping_cart_outlined, color: colorScheme.primary),
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => CartPage()));
+                },
               ),
-              if (_cartItems.isNotEmpty)
+              if (CartPage.staticCartItems.isNotEmpty)
                 Positioned(
                   right: 8,
                   top: 8,
@@ -208,7 +183,7 @@ class _ProductsPageState extends State<ProductsPage> {
                       minHeight: 18,
                     ),
                     child: Text(
-                      _cartItems.length.toString(),
+                      CartPage.staticCartItems.length.toString(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 10,
@@ -414,7 +389,7 @@ class _ProductsPageState extends State<ProductsPage> {
                         Column(
                           children: [
                             Text(
-                              _formatPrice(product.price),
+                              'Kz ${product.price.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -461,194 +436,6 @@ class _ProductsPageState extends State<ProductsPage> {
             );
           },
         ),
-      ),
-    );
-  }
-
-  Widget _buildCartModal() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Cabeçalho do carrinho
-          Container(
-            padding: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[300]!),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.shopping_cart, size: 24),
-                const SizedBox(width: 8),
-                const Text(
-                  'Meu Carrinho',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${_cartItems.length} itens',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Lista de itens no carrinho
-          if (_cartItems.isEmpty)
-            const Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'Carrinho vazio',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _cartItems.length,
-                itemBuilder: (context, index) {
-                  final product = _cartItems[index];
-                  
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    child: ListTile(
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              product.image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.image_not_supported,
-                                  color: Colors.grey,
-                                );
-                              },
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                );
-                              },
-                            )),
-                      ),
-                      title: Text(
-                        product.name,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      subtitle: Text(
-                        _formatPrice(product.price),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.remove_circle_outline,
-                          color: Colors.red,
-                          size: 20,
-                        ),
-                        onPressed: () => _removeFromCart(index),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-          // Total e ações
-          if (_cartItems.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey[300]!),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    _formatPrice(_totalPrice),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {
-                  // TODO: Implementar finalização de compra
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Finalizar Compra',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Continuar Comprando'),
-          ),
-        ],
       ),
     );
   }

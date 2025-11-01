@@ -2,10 +2,10 @@ import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
 
 // ignore: must_be_immutable
-class CartPage extends StatefulWidget {
-  List<Product> cartItems;
- 
-  CartPage({super.key, required this.cartItems});
+class CartPage extends StatefulWidget { 
+  // Lista estática para ser acessível de qualquer lugar da aplicação.
+  static final List<Product> staticCartItems = [];
+  CartPage({super.key});
 
   @override
   State<CartPage> createState() => _CartPageState();
@@ -34,16 +34,16 @@ class _CartPageState extends State<CartPage> {
   @override
   void initState() {
     super.initState();
-    // Inicializa todas as quantidades como 1
-    for (int i = 0; i < widget.cartItems.length; i++) {
+    // Inicializa as quantidades para novos itens
+    for (int i = 0; i < CartPage.staticCartItems.length; i++) {
       _itemQuantities[i] = 1;
     }
   }
 
   double get _totalPrice {
     double total = 0;
-    for (int i = 0; i < widget.cartItems.length; i++) {
-      final product = widget.cartItems[i];
+    for (int i = 0; i < CartPage.staticCartItems.length; i++) {
+      final product = CartPage.staticCartItems[i];
       final quantity = _itemQuantities[i] ?? 1;
       total += product.price * quantity;
     }
@@ -68,7 +68,7 @@ class _CartPageState extends State<CartPage> {
   void _removeItem(int index) {
     setState(() {
       _itemQuantities.remove(index);
-      widget.cartItems.removeAt(index);
+      CartPage.staticCartItems.removeAt(index);
     });
   }
 
@@ -176,7 +176,7 @@ class _CartPageState extends State<CartPage> {
         elevation: 0,
         foregroundColor: colorScheme.primary,
       ),
-      body: widget.cartItems.isEmpty
+      body: CartPage.staticCartItems.isEmpty
           ? _buildEmptyCart()
           : Column(
               children: [
@@ -184,9 +184,9 @@ class _CartPageState extends State<CartPage> {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: widget.cartItems.length,
+                    itemCount: CartPage.staticCartItems.length,
                     itemBuilder: (context, index) {
-                      final item = widget.cartItems[index];
+                      final item = CartPage.staticCartItems[index];
                       final quantity = _itemQuantities[index] ?? 1;
                       final totalItemPrice = item.price * quantity;
 

@@ -14,8 +14,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Estado para o carrinho e para os produtos
-  final List<Product> _cartItems = [];
   List<Product> _featuredProducts = [];
   bool _isLoading = true;
   String? _error;
@@ -133,11 +131,12 @@ class _HomePageState extends State<HomePage> {
 
   void _addToCart(Product product) {
     setState(() {
-      _cartItems.add(product);
+      CartPage.staticCartItems.add(product);
     });
     // Adiciona um feedback visual
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('${product.name} adicionado ao carrinho!'),
+      content: Text('${product.name} adicionado ao carrinho!'), 
       duration: const Duration(seconds: 1),
     ));
   }
@@ -380,13 +379,12 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (context) => CartPage(cartItems: _cartItems)));
+                    MaterialPageRoute(builder: (context) => CartPage()));
               },
               backgroundColor: colorScheme.primary,
               child: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
             ),
-            if (_cartItems.isNotEmpty)
+            if (CartPage.staticCartItems.isNotEmpty)
               Positioned(
                 right: 0,
                 top: 0,
@@ -401,7 +399,7 @@ class _HomePageState extends State<HomePage> {
                     minHeight: 20,
                   ),
                   child: Text(
-                    _cartItems.length.toString(),
+                    CartPage.staticCartItems.length.toString(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -444,8 +442,7 @@ class _HomePageState extends State<HomePage> {
                   onTap: () {
                     Navigator.push(
                         context,
-                        MaterialPageRoute(
-                            builder: (context) => CartPage(cartItems: _cartItems)));
+                        MaterialPageRoute(builder: (context) => CartPage()));
                   },
                   child: _buildBottomNavItem(
                       Icons.shopping_cart, 'Carrinho', false, colorScheme),
