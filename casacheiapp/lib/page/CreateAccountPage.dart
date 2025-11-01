@@ -44,18 +44,21 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
         );
 
         if (mounted) {
+          final responseBody = jsonDecode(response.body);
           if (response.statusCode == 201) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Conta criada com sucesso!')),
             );
+            // Extrai os dados do usuário da resposta
+            final user = responseBody['user'];
             // Navega para a home e remove todas as rotas anteriores da pilha
             Navigator.pushNamedAndRemoveUntil(
               context,
               '/home',
               (route) => false,
+              arguments: user,
             );
           } else {
-            final responseBody = jsonDecode(response.body);
             final errorMessage = responseBody['message'] ?? 'Erro desconhecido ao criar conta.';
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Falha: $errorMessage')),

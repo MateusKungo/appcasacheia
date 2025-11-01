@@ -1,18 +1,8 @@
+import 'dart:convert';
+import 'dart:async'; // Import para usar TimeoutException
+import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
-
-class Product {
-  final String name;
-  final double price;
-  final String image;
-  final String category;
-
-  const Product({
-    required this.name,
-    required this.price,
-    required this.image,
-    required this.category,
-  });
-}
+import 'package:http/http.dart' as http;
 
 class ProductsPage extends StatefulWidget {
   const ProductsPage({super.key});
@@ -23,62 +13,11 @@ class ProductsPage extends StatefulWidget {
 
 class _ProductsPageState extends State<ProductsPage> {
   final List<Product> _cartItems = [];
+  List<Product> _products = [];
   String _selectedCategory = 'Todos';
-  
-  final List<Product> _products = [
-    // Grãos
-    Product(name: 'Arroz Integral', price: 2500, image: '🍚', category: 'Grãos'),
-    Product(name: 'Feijão Vermelho', price: 1800, image: '🫘', category: 'Grãos'),
-    Product(name: 'Milho Seco', price: 1200, image: '🌽', category: 'Grãos'),
-    Product(name: 'Farinha de Trigo', price: 1500, image: '🌾', category: 'Grãos'),
-    Product(name: 'Açúcar Branco', price: 1400, image: '🍚', category: 'Grãos'),
-    Product(name: 'Feijão Preto', price: 2000, image: '🫘', category: 'Grãos'),
-    Product(name: 'Arroz Branco', price: 2200, image: '🍚', category: 'Grãos'),
-    Product(name: 'Fuba de Milho', price: 1100, image: '🌽', category: 'Grãos'),
-    
-    // Bebidas
-    Product(name: 'Água Mineral 1.5L', price: 200, image: '💧', category: 'Bebidas'),
-    Product(name: 'Sumo de Laranja', price: 800, image: '🧃', category: 'Bebidas'),
-    Product(name: 'Refrigerante', price: 600, image: '🥤', category: 'Bebidas'),
-    Product(name: 'Cerveja Nacional', price: 400, image: '🍺', category: 'Bebidas'),
-    Product(name: 'Vinho Tinto', price: 3500, image: '🍷', category: 'Bebidas'),
-    Product(name: 'Sumo de Manga', price: 750, image: '🧃', category: 'Bebidas'),
-    Product(name: 'Água com Gás', price: 250, image: '💧', category: 'Bebidas'),
-    Product(name: 'Energético', price: 900, image: '🥤', category: 'Bebidas'),
-    
-    // Enlatados
-    Product(name: 'Atum em Lata', price: 1200, image: '🐟', category: 'Enlatados'),
-    Product(name: 'Sardinha', price: 800, image: '🐠', category: 'Enlatados'),
-    Product(name: 'Milho em Conserva', price: 900, image: '🌽', category: 'Enlatados'),
-    Product(name: 'Feijão Enlatado', price: 1100, image: '🫘', category: 'Enlatados'),
-    Product(name: 'Ervilhas', price: 950, image: '🫛', category: 'Enlatados'),
-    Product(name: 'Cogumelos', price: 1300, image: '🍄', category: 'Enlatados'),
-    
-    // Higiene
-    Product(name: 'Sabonete', price: 300, image: '🧼', category: 'Higiene'),
-    Product(name: 'Pasta Dental', price: 700, image: '🦷', category: 'Higiene'),
-    Product(name: 'Shampoo', price: 1200, image: '🧴', category: 'Higiene'),
-    Product(name: 'Desodorante', price: 900, image: '🧴', category: 'Higiene'),
-    Product(name: 'Papel Higiênico', price: 1500, image: '🧻', category: 'Higiene'),
-    Product(name: 'Creme Dental', price: 800, image: '🦷', category: 'Higiene'),
-    Product(name: 'Sabão em Pó', price: 1800, image: '🧼', category: 'Higiene'),
-    Product(name: 'Amaciador', price: 1600, image: '🧴', category: 'Higiene'),
-    
-    // Laticínios
-    Product(name: 'Leite UHT 1L', price: 600, image: '🥛', category: 'Laticínios'),
-    Product(name: 'Queijo', price: 1800, image: '🧀', category: 'Laticínios'),
-    Product(name: 'Manteiga', price: 1000, image: '🧈', category: 'Laticínios'),
-    Product(name: 'Iogurte Natural', price: 400, image: '🥛', category: 'Laticínios'),
-    Product(name: 'Leite Condensado', price: 800, image: '🥛', category: 'Laticínios'),
-    Product(name: 'Requeijão', price: 1200, image: '🧀', category: 'Laticínios'),
-    Product(name: 'Iogurte de Morango', price: 450, image: '🥛', category: 'Laticínios'),
-    
-    // Cestas
-    Product(name: 'Cesta Básica Pequena', price: 15000, image: '🛒', category: 'Cestas'),
-    Product(name: 'Cesta Básica Média', price: 25000, image: '🛒', category: 'Cestas'),
-    Product(name: 'Cesta Básica Grande', price: 35000, image: '🛒', category: 'Cestas'),
-    Product(name: 'Cesta Familiar', price: 45000, image: '🛒', category: 'Cestas'),
-  ];
+  bool _isLoading = true;
+  bool _isRetrying = false; // Novo estado para o botão de tentar novamente
+  String? _error;
 
   final List<String> _categories = [
     'Todos',
@@ -89,6 +28,101 @@ class _ProductsPageState extends State<ProductsPage> {
     'Laticínios',
     'Cestas',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProducts();
+  }
+
+  // Função auxiliar para extrair números de forma segura
+  double _parseDynamicNumber(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    // Verifica se é um mapa (comum em respostas de MongoDB, ex: {"$numberDecimal": "15000"})
+    if (value is Map && value.containsKey('\$numberDecimal')) {
+      return double.tryParse(value['\$numberDecimal'].toString()) ?? 0.0;
+    }
+    // Retorna 0.0 se não conseguir converter
+    debugPrint('Não foi possível converter o valor: $value para double.');
+    return 0.0;
+  }
+
+  Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _isRetrying = true; // Ativa o estado de carregamento do botão
+    });
+    try {
+      final response = await http.get(
+        Uri.parse('https://casa-fscp.onrender.com/api.casacheia/products'),
+      ).timeout(const Duration(seconds: 15)); // Adiciona um timeout de 15 segundos
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        // A API retorna um objeto, e a lista de produtos está dentro de uma chave (ex: 'products')
+        final List<dynamic> data = responseBody['allProducts'] ?? [];
+
+        setState(() {
+          _products = data.map<Product>((json) {
+            // Mapeia a categoria para um emoji, com um padrão
+            final category = json['category'] ?? 'Outros';
+            final image = {
+              'Grãos': '🍚',
+              'Bebidas': '🥤',
+              'Enlatados': '🥫',
+              'Higiene': '🧼',
+              'Laticínios': '🥛',
+              'Cestas': '🛒',
+            }[category] ?? '📦';
+
+            return Product(
+              id: json['_id'] ?? '',
+              name: json['name'] ?? 'Produto sem nome',
+              price: _parseDynamicNumber(json['price']),
+              category: category,
+              stock: _parseDynamicNumber(json['stock']).toInt(),
+              description: json['description'] ?? '',
+              image: image,
+            );
+          }).toList();
+          _isLoading = false;
+        });
+      } else {
+        // Adiciona um log para o console quando a resposta não for 200
+        debugPrint('Falha ao carregar produtos. Status: ${response.statusCode}');
+        debugPrint('Corpo da resposta: ${response.body}');
+        setState(() {
+          _error = 'Falha ao carregar produtos: ${response.statusCode}';
+          _isLoading = false;
+        });
+      }
+    } on TimeoutException {
+      // Adiciona um log para o console em caso de timeout
+      debugPrint('Erro: Timeout ao buscar produtos.');
+      // Trata o erro de tempo limite esgotado
+      setState(() {
+        _error = 'A requisição demorou muito para responder. Verifique sua conexão e tente novamente.';
+        _isLoading = false;
+      });
+    } catch (e, stackTrace) {
+      // Adiciona um log para o console para outras exceções
+      debugPrint('Erro de conexão ao buscar produtos: $e');
+      debugPrint('StackTrace: $stackTrace');
+      setState(() {
+        _error = 'Erro de conexão: $e';
+        _isLoading = false;
+      });
+    } finally {
+      // Garante que o estado de carregamento do botão seja desativado
+      if (mounted) setState(() => _isRetrying = false);
+    }
+  }
 
   void _addToCart(Product product) {
     setState(() {
@@ -225,21 +259,52 @@ class _ProductsPageState extends State<ProductsPage> {
 
           // Lista de Produtos em Grid
           Expanded(
-            child: Padding(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 60,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(_error!, textAlign: TextAlign.center),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _isRetrying ? null : _fetchProducts, // Desabilita o botão enquanto estiver tentando
+                                child: _isRetrying
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Tentar Novamente'),
+                              )
+                            ],
+                          ),
+                        ),
+                      )
+                    : Padding(
               padding: const EdgeInsets.all(16),
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.72, // Ajustado para melhor proporção
+                  childAspectRatio: 0.72,
                 ),
                 itemCount: _filteredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _filteredProducts[index];
-                  
-                  return _buildProductCard(product, colorScheme);
-                },
+                itemBuilder: (context, index) =>
+                    _buildProductCard(_filteredProducts[index], colorScheme),
               ),
             ),
           ),

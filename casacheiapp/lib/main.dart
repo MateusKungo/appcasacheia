@@ -6,11 +6,12 @@ import 'package:casacheiapp/page/HomePage.dart';
 import 'package:casacheiapp/page/BasketsPage.dart';
 import 'package:casacheiapp/page/PromotionsPage.dart';
 import 'package:casacheiapp/page/ProductsPage.dart';
+import 'package:casacheiapp/page/profilePage.dart';
 import 'package:casacheiapp/theme/theme.dart';
 
-
 import 'package:flutter/material.dart';
- void main() {
+
+void main() {
   runApp(const MyApp());
 }
 
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/baskets': (context) => const BasketsPage(),
         '/promotions': (context) => const PromotionsPage(),
         '/products': (context) => const ProductsPage(),
+        '/profile': (context) => const ProfilePage(),
         // A navegação para o carrinho é feita via MaterialPageRoute para passar argumentos,
         // mas podemos manter a rota registrada se necessário.
       } ,

@@ -12,6 +12,23 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final Map<int, int> _itemQuantities = {};
+  String? _selectedPaymentMethod;
+
+  // Lista de métodos de pagamento - apenas Dinheiro e Cartão
+  final List<Map<String, dynamic>> _paymentMethods = [
+    {
+      'name': 'Dinheiro',
+      'icon': Icons.money,
+      'description': 'Pagamento na entrega',
+      'type': 'presencial'
+    },
+    {
+      'name': 'Cartão',
+      'icon': Icons.credit_card,
+      'description': 'Cartão de crédito/débito',
+      'type': 'online'
+    },
+  ];
 
   @override
   void initState() {
@@ -27,23 +44,9 @@ class _CartPageState extends State<CartPage> {
     for (int i = 0; i < widget.cartItems.length; i++) {
       final product = widget.cartItems[i];
       final quantity = _itemQuantities[i] ?? 1;
-      final price = _parsePrice(product.price);
-      total += price * quantity;
+      total += product.price * quantity;
     }
     return total;
-  }
-
-  double _parsePrice(String priceString) {
-    try {
-      // Remove "Kz" e espaços, substitui vírgula por ponto
-      final cleanString = priceString
-          .replaceAll('Kz', '')
-          .replaceAll(' ', '')
-          .replaceAll(',', '.');
-      return double.parse(cleanString);
-    } catch (e) {
-      return 0.0;
-    }
   }
 
   void _incrementQuantity(int index) {
@@ -64,8 +67,6 @@ class _CartPageState extends State<CartPage> {
   void _removeItem(int index) {
     setState(() {
       _itemQuantities.remove(index);
-      // Em uma aplicação real, você removeria o item da lista principal
-      // widget.cartItems.removeAt(index);
     });
   }
 
@@ -75,25 +76,19 @@ class _CartPageState extends State<CartPage> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(8), // Mesmo raio do botão (8px)
-          topRight: Radius.circular(8), // Mesmo raio do botão (8px)
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
         ),
       ),
       builder: (context) => _buildPaymentModal(),
     );
   }
 
-  void _selectPaymentMethod(String method) {
-    Navigator.pop(context); // Fecha o modal
-    // TODO: Implementar lógica do método de pagamento selecionado
-    _showConfirmationDialog(method);
-  }
-
   void _showConfirmationDialog(String method) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Compra Finalizada!'),
+        title: const Text('Pedido Enviado!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,14 +96,69 @@ class _CartPageState extends State<CartPage> {
             Text('Total: Kz ${_totalPrice.toStringAsFixed(2)}'),
             const SizedBox(height: 8),
             Text('Pagamento: $method'),
+            const SizedBox(height: 8),
+            const Text('Seu pedido foi enviado com sucesso!'),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context); // Fecha o dialog
+              Navigator.pop(context); // Fecha o modal de pagamento
+              // Aqui você pode adicionar lógica para limpar o carrinho
+            },
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showOnlinePaymentModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Insira os dados do Cartão', 
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+            ),
+            const SizedBox(height: 24),
+            const TextField(decoration: InputDecoration(labelText: 'Número do Cartão')),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'Validade (MM/AA)'))),
+                SizedBox(width: 16),
+                Expanded(child: TextField(decoration: InputDecoration(labelText: 'CVV'))),
+              ],
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context); // Fecha o modal de pagamento online
+                _showConfirmationDialog('Cartão');
+              },
+              child: const Text('Pagar Agora'),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
@@ -136,8 +186,7 @@ class _CartPageState extends State<CartPage> {
                     itemBuilder: (context, index) {
                       final item = widget.cartItems[index];
                       final quantity = _itemQuantities[index] ?? 1;
-                      final itemPrice = _parsePrice(item.price);
-                      final totalItemPrice = itemPrice * quantity;
+                      final totalItemPrice = item.price * quantity;
 
                       return _buildCartItem(
                         item,
@@ -247,8 +296,8 @@ class _CartPageState extends State<CartPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text( // Preço unitário
-              'Kz ${_parsePrice(item.price).toStringAsFixed(2)}',
+            Text(
+              'Kz ${item.price.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.primary,
@@ -401,104 +450,227 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildPaymentModal() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return StatefulBuilder(builder: (BuildContext context, StateSetter modalSetState) {
+      return Container(
+      padding: const EdgeInsets.all(16),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.8,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho do modal
+          // Cabeçalho do modal de pagamento
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!),
+                bottom: BorderSide(color: Colors.grey[300]!),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.payment, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Escolha a forma de pagamento',
+                const Icon(Icons.payment, size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Método de Pagamento',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
           ),
 
-          // Opções de pagamento
-          _buildPaymentOption(
-            icon: Icons.storefront_outlined,
-            title: 'Pagamento Presencial',
-            subtitle: 'Pague na loja quando retirar',
-            onTap: () => _selectPaymentMethod('Presencial'),
-          ),
-          _buildPaymentOption(
-            icon: Icons.credit_card_outlined,
-            title: 'Pagamento Online',
-            subtitle: 'Pague com cartão ou PIX',
-            onTap: () => _selectPaymentMethod('Online'),
+          const SizedBox(height: 16),
+
+          // Lista de métodos de pagamento
+          Expanded(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _paymentMethods.length,
+              itemBuilder: (context, index) {
+                final paymentMethod = _paymentMethods[index];
+                final isSelected = _selectedPaymentMethod == paymentMethod['name']; 
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  elevation: isSelected ? 2 : 1,
+                  child: ListTile(
+                    leading: Icon(
+                      paymentMethod['icon'] as IconData,
+                      color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[700],
+                      size: 28,
+                    ),
+                    title: Text(
+                      paymentMethod['name'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
+                      ),
+                    ),
+                    subtitle: Text(
+                      paymentMethod['description'],
+                      style: TextStyle(
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[600],
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(
+                            Icons.check_circle,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 24,
+                          )
+                        : const Icon(
+                            Icons.radio_button_unchecked,
+                            color: Colors.grey,
+                            size: 24,
+                          ),
+                    onTap: () {
+                      modalSetState(() {
+                        _selectedPaymentMethod = paymentMethod['name'];
+                      });
+                      
+                      // Se for Cartão, abre o modal de pagamento online
+                      if (paymentMethod['type'] == 'online') {
+                        Future.delayed(Duration.zero, () {
+                          Navigator.pop(context); // Fecha o modal atual
+                          _showOnlinePaymentModal();
+                        });
+                      }
+                    },
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
 
-          // Botão cancelar
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: OutlinedButton(
-                onPressed: () => Navigator.pop(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8), // Mesmo raio do botão
-                  ),
-                  side: BorderSide(color: Colors.grey[300]!),
+          const SizedBox(height: 16),
+
+          // Botão de enviar pedido (apenas para Dinheiro)
+          if (_selectedPaymentMethod == 'Dinheiro') ...[
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey[300]!),
                 ),
-                child: const Text('Cancelar'),
               ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'Kz ${_totalPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Método selecionado:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        _selectedPaymentMethod!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  _showConfirmationDialog(_selectedPaymentMethod!);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  'Enviar Pedido',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ] else if (_selectedPaymentMethod == null)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Selecione um método de pagamento',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Voltar ao Carrinho'),
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildPaymentOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(8), // Mesmo raio do botão
-        ),
-        child: Icon(icon, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
-      ),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: onTap,
-    );
+    });
   }
 }

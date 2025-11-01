@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:async';
+import 'dart:math';
 import 'package:casacheiapp/page/CartPage.dart';
 import 'package:casacheiapp/page/product.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,12 +14,127 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Estado para o carrinho e para os produtos
   final List<Product> _cartItems = [];
+  List<Product> _featuredProducts = [];
+  bool _isLoading = true;
+  String? _error;
+
+  // Estado para o carrossel de banners
+  Timer? _bannerTimer;
+  final PageController _bannerController = PageController();
+  int _currentBannerIndex = 0;
+  final List<String> _bannerImages = [
+    'assets/images/cardimage.png',
+    'assets/images/banner1.jpg',
+    'assets/images/banner2.jpg',
+    'assets/images/banner3.jpg',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFeaturedProducts();
+    _startBannerTimer();
+  }
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    _bannerController.dispose();
+    super.dispose();
+  }
+
+  void _startBannerTimer() {
+    // Troca o banner a cada 5 segundos
+    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_bannerController.hasClients) {
+        int nextPage = _currentBannerIndex + 1;
+        if (nextPage >= _bannerImages.length) {
+          nextPage = 0; // Volta para o primeiro
+        }
+        _bannerController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  // Função para buscar produtos da API
+  Future<void> _fetchFeaturedProducts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('https://casa-fscp.onrender.com/api.casacheia/products'),
+      );
+
+      if (response.statusCode == 200) {
+        final responseBody = jsonDecode(response.body);
+        // A API retorna um objeto, e a lista de produtos está dentro de uma chave (ex: 'products')
+        final List<dynamic> data = responseBody['allProducts'] ?? [];
+
+        setState(() {
+          _featuredProducts = data.map<Product>((json) {
+            final category = json['category'] ?? 'Outros';
+            final image = {
+              'Grãos': '🍚',
+              'Bebidas': '🥤',
+              'Enlatados': '🥫',
+              'Higiene': '🧼',
+              'Laticínios': '🥛',
+              'Cestas': '🛒',
+            }[category] ?? '📦';
+
+            return Product(
+              id: json['_id'] ?? '',
+              name: json['name'] ?? 'Produto sem nome',
+              price: _parseDynamicNumber(json['price']),
+              category: category,
+              stock: _parseDynamicNumber(json['stock']).toInt(),
+              description: json['description'] ?? '',
+              image: image,
+            );
+          }).take(6).toList(); // Pega apenas os 6 primeiros como destaque
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Falha ao carregar produtos';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Erro de conexão. Verifique sua internet.';
+        _isLoading = false;
+      });
+    }
+  }
 
   void _addToCart(Product product) {
     setState(() {
       _cartItems.add(product);
     });
+    // Adiciona um feedback visual
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${product.name} adicionado ao carrinho!'),
+      duration: const Duration(seconds: 1),
+    ));
+  }
+
+  // Função auxiliar para extrair números de forma segura
+  double _parseDynamicNumber(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    if (value is Map && value.containsKey(r'$numberDecimal')) {
+      return double.tryParse(value[r'$numberDecimal'].toString()) ?? 0.0;
+    }
+    return 0.0;
   }
 
   @override
@@ -82,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                         height: 50,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(5),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.grey.withOpacity(0.2),
@@ -102,61 +221,71 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-
+                  
                     // Seção de Promoções
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      child: InkWell(
-                        onTap: () => Navigator.pushNamed(context, '/promotions'),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          height: 220,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            image: const DecorationImage(
-                              image: AssetImage('assets/images/cardimage.png'),
-                              fit: BoxFit.cover,
-                              colorFilter: ColorFilter.mode(
-                                Colors.black38,
-                                BlendMode.darken,
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: SizedBox(
+                        height: 200,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: PageView.builder(
+                                controller: _bannerController,
+                                itemCount: _bannerImages.length,
+                                onPageChanged: (index) {
+                                  setState(() {
+                                    _currentBannerIndex = index;
+                                  });
+                                },
+                                itemBuilder: (context, index) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        image: DecorationImage(
+                                          image: AssetImage(_bannerImages[index]),
+                                          fit: BoxFit.cover,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colorScheme.primary.withOpacity(0.3),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.primary.withOpacity(0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Align(
-                            alignment: Alignment.bottomLeft,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Promoções\nImperdíveis!',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.2,
-                                      shadows: [
-                                        Shadow(blurRadius: 8, color: Colors.black54)
-                                      ]),
-                                ),
-                                Icon(Icons.arrow_forward_ios,
-                                    color: Colors.white, size: 20),
-                              ],
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(_bannerImages.length, (index) {
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  height: 8,
+                                  width: _currentBannerIndex == index ? 24 : 8,
+                                  decoration: BoxDecoration(
+                                    color: _currentBannerIndex == index
+                                        ? colorScheme.primary
+                                        : Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                );
+                              }),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
+                
               ),
 
               // Seção de Categorias
@@ -219,61 +348,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 16),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                children: [
-                  ProductCard(
-                    product: const Product(name: 'Arroz 25kg', price: 'Kz 15000', image: '🍚'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(
-                        const Product(name: 'Arroz 25kg', price: 'Kz 15000', image: '🍚')),
-                  ),
-                  ProductCard(
-                    product: const Product(
-                        name: 'Feijão 1kg', price: 'Kz 1500', image: '🫘'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(
-                        const Product(name: 'Feijão 1kg', price: 'Kz 1500', image: '🫘')),
-                  ),
-                  ProductCard(
-                    product: const Product(
-                        name: 'Óleo de Soja 1L', price: 'Kz 2000', image: '🫒'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(const Product(
-                        name: 'Óleo de Soja 1L', price: 'Kz 2000', image: '🫒')),
-                  ),
-                  ProductCard(
-                    product: const Product(
-                        name: 'Açúcar 1kg', price: 'Kz 1200', image: '🍚'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(
-                        const Product(name: 'Açúcar 1kg', price: 'Kz 1200', image: '🍚')),
-                  ),
-                  ProductCard(
-                    product: const Product(
-                        name: 'Café Solúvel',
-                        price: 'Kz 1800',
-                        image: '☕'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(const Product(
-                        name: 'Café Solúvel',
-                        price: 'Kz 1800',
-                        image: '☕')),
-                  ),
-                  ProductCard(
-                    product: const Product(name: 'Leite 1L', price: 'Kz 1100', image: '🥛'),
-                    colorScheme: colorScheme,
-                    onAddToCart: () => _addToCart(
-                        const Product(name: 'Leite 1L', price: 'Kz 1100', image: '🥛')),
-                  ),
-                ],
-              ),
+              _buildProductGrid(colorScheme),
               const SizedBox(height: 80),
             ],
           ),
@@ -356,7 +431,14 @@ class _HomePageState extends State<HomePage> {
                   child: _buildBottomNavItem(
                       Icons.shopping_cart, 'Carrinho', false, colorScheme),
                 ),
-                _buildBottomNavItem(Icons.person, 'Perfil', false, colorScheme),
+                InkWell(
+                  onTap: () {
+                    // Pega os dados do usuário passados como argumento para a HomePage
+                    final user = ModalRoute.of(context)?.settings.arguments;
+                    Navigator.pushNamed(context, '/profile', arguments: user);
+                  },
+                  child: _buildBottomNavItem(Icons.person, 'Perfil', false, colorScheme),
+                ),
               ],
             ),
           ),
@@ -384,6 +466,52 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+    );
+  }
+
+  // Widget para a grade de produtos
+  Widget _buildProductGrid(ColorScheme colorScheme) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Text(_error!),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: _fetchFeaturedProducts,
+                child: const Text('Tentar Novamente'),
+              )
+            ],
+          ),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: _featuredProducts.length,
+      itemBuilder: (context, index) {
+        final product = _featuredProducts[index];
+        return ProductCard(
+          product: product,
+          colorScheme: colorScheme,
+          onAddToCart: () => _addToCart(product),
+        );
+      },
     );
   }
 }
@@ -510,7 +638,7 @@ class ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  product.price,
+                  'Kz ${product.price.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
