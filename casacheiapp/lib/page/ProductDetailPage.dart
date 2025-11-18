@@ -110,7 +110,7 @@ Poderia me ajudar com este pedido?
 ''';
 
     final encodedMessage = Uri.encodeComponent(message);
-    final whatsappUrl = 'https://wa.me/244942309251?text=$encodedMessage';
+    final whatsappUrl = 'https://wa.me/244931352439?text=$encodedMessage';
     
     _launchUrl(whatsappUrl);
   }
