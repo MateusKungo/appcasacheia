@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:casacheiapp/page/EditProfilePage.dart'; // Importe a nova página
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -8,8 +9,25 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+
   void _logout() {
     Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  }
+
+  // Inicializa _currentUser como um mapa vazio por padrão
+  // Ele será preenchido em didChangeDependencies
+  Map<String, dynamic> _currentUser = {};
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Acessa ModalRoute.of(context) aqui, onde o context já está totalmente inicializado
+    _currentUser = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
   }
 
   @override
@@ -17,9 +35,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final user = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ?? {};
-    final userName = user['name'] as String? ?? 'Usuário';
-    final userPhone = user['telefone'] as String? ?? 'Telefone não informado';
+    final userName = _currentUser['name'] as String? ?? 'Usuário';
+    final userPhone = _currentUser['telefone'] as String? ?? 'Telefone não informado';
     final userInitial = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
 
     return Scaffold(
@@ -145,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
               title: 'Editar Perfil',
               subtitle: 'Altere seus dados pessoais',
               onTap: () {
-                // TODO: Navegar para a tela de edição de perfil
+                _navigateToEditProfile();
               },
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
@@ -179,6 +196,21 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    final updatedUser = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditProfilePage(currentUser: _currentUser),
+                  ),
+                );
+
+    if (updatedUser != null && updatedUser is Map<String, dynamic>) {
+      setState(() {
+        _currentUser = updatedUser;
+      });
+    }
   }
 
   Widget _buildMenuItem({

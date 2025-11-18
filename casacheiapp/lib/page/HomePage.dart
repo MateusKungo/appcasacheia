@@ -464,7 +464,7 @@ class _HomePageState extends State<HomePage> {
                 InkWell(
                   onTap: () {
                     // Pega os dados do usuário passados como argumento para a HomePage
-                    final user = ModalRoute.of(context)?.settings.arguments;
+                    final user = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
                     Navigator.pushNamed(context, '/profile', arguments: user);
                   },
                   child: _buildBottomNavItem(Icons.person, 'Perfil', false, colorScheme),

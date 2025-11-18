@@ -50,7 +50,9 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
               const SnackBar(content: Text('Conta criada com sucesso!')),
             );
             // Extrai os dados do usuário da resposta
-            final user = responseBody['user'];
+            final user = responseBody['user'] as Map<String, dynamic>? ?? {};
+            final token = responseBody['token'] as String?; // Assuming token is at root
+            if (token != null) user['token'] = token; // Add token to user map
             // Navega para a home e remove todas as rotas anteriores da pilha
             Navigator.pushNamedAndRemoveUntil(
               context,
